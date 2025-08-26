@@ -5,6 +5,7 @@ Concise, readable implementation for production Cog deployment.
 
 from typing import Any, Dict, List, Optional
 import gc
+import json
 
 import cv2
 import numpy as np
@@ -24,6 +25,11 @@ class TextRegion(BaseModel):
     x2: Optional[int] = None
     y2: Optional[int] = None
     polygon: Optional[List[int]] = None
+
+
+class ModelOutput(BaseModel):
+    text_file: Path
+    metadata: str
 
 
 DEFAULT_LANGS = ["en", "es", "fr", "de", "it", "pt"]
@@ -83,13 +89,19 @@ class Predictor(BasePredictor):
             arr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
         return arr
 
-    def _to_detections(self, results: List, min_conf: float, include_bboxes: bool, include_polygons: bool) -> Any:
+    def _to_detections(self, results: List, min_conf: float, include_bboxes: bool, include_polygons: bool) -> ModelOutput:
         out: List[TextRegion] = []
+        # Filter then sort by top-to-bottom (y), then left-to-right (x) for user-friendly reading order
+        filtered = []
         for bbox, text, conf in results:
             if not text or conf < min_conf:
                 continue
             xs = [int(p[0]) for p in bbox]
             ys = [int(p[1]) for p in bbox]
+            y_min, x_min = min(ys), min(xs)
+            filtered.append((y_min, x_min, xs, ys, text, float(conf)))
+        filtered.sort(key=lambda t: (t[0], t[1]))
+        for _, _, xs, ys, text, conf in filtered:
             bbox_vals = (min(xs), min(ys), max(xs), max(ys)) if include_bboxes else (None, None, None, None)
             poly = None
             if include_polygons:
@@ -98,7 +110,7 @@ class Predictor(BasePredictor):
                     poly.extend([xs[i], ys[i]])
             out.append(TextRegion(
                 text=text.strip(),
-                confidence=float(conf),
+                confidence=conf,
                 x1=bbox_vals[0], y1=bbox_vals[1], x2=bbox_vals[2], y2=bbox_vals[3],
                 polygon=poly
             ))
@@ -113,8 +125,8 @@ class Predictor(BasePredictor):
         preprocessing: bool = Input(description="Apply preprocessing (recommended)", default=True),
         text_only: bool = Input(description="Return only text lines (list of strings)", default=False),
         include_bboxes: bool = Input(description="Include x1,y1,x2,y2 in output", default=True),
-        include_polygons: bool = Input(description="Include 4-point polygon as flat list", default=True),
-    ) -> Any:
+        include_polygons: bool = Input(description="Include 4-point polygon as flat list", default=False),
+    ) -> ModelOutput:
         # Load and preprocess image
         arr = self._load_image(image)
         processed = self._preprocess(arr, preprocessing)
@@ -145,6 +157,36 @@ class Predictor(BasePredictor):
             gc.collect()
             torch.cuda.empty_cache()
 
+        # Create output files
         if text_only:
-            return [r.text for r in detections]
-        return [r.model_dump(exclude_none=True) for r in detections]
+            text_content = "\n".join(r.text for r in detections)
+        else:
+            # Create structured text with bounding boxes as comments
+            lines = []
+            for r in detections:
+                bbox_info = ""
+                if include_bboxes and r.x1 is not None:
+                    bbox_info = f" <!-- bbox: {r.x1},{r.y1},{r.x2},{r.y2} -->"
+                lines.append(f"{r.text}{bbox_info}")
+            text_content = "\n".join(lines)
+        
+        # Write to output file
+        out_file = Path("extracted_text.txt")
+        out_file.write_text(text_content, encoding='utf-8')
+        
+        # Create metadata
+        metadata = {
+            "total_regions": len(detections),
+            "avg_confidence": round(sum(r.confidence for r in detections) / len(detections), 3) if detections else 0.0,
+            "languages_used": langs,
+            "preprocessing_applied": preprocessing,
+            "include_bboxes": include_bboxes,
+            "include_polygons": include_polygons,
+            "text_only": text_only,
+            "regions": [r.model_dump(exclude_none=True) for r in detections] if not text_only else []
+        }
+        
+        return ModelOutput(
+            text_file=out_file,
+            metadata=json.dumps(metadata, indent=2)
+        )
