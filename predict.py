@@ -3,7 +3,7 @@ Screenshot OCR with EasyOCR
 Concise, readable implementation for production Cog deployment.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import gc
 
 import cv2
@@ -19,11 +19,11 @@ from pydantic import BaseModel, Field
 class TextRegion(BaseModel):
     text: str
     confidence: float = Field(ge=0.0, le=1.0)
-    x1: int
-    y1: int
-    x2: int
-    y2: int
-    polygon: List[int]
+    x1: Optional[int] = None
+    y1: Optional[int] = None
+    x2: Optional[int] = None
+    y2: Optional[int] = None
+    polygon: Optional[List[int]] = None
 
 
 DEFAULT_LANGS = ["en", "es", "fr", "de", "it", "pt"]
@@ -83,20 +83,23 @@ class Predictor(BasePredictor):
             arr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
         return arr
 
-    def _to_detections(self, results: List, min_conf: float) -> List[TextRegion]:
+    def _to_detections(self, results: List, min_conf: float, include_bboxes: bool, include_polygons: bool) -> Any:
         out: List[TextRegion] = []
         for bbox, text, conf in results:
             if not text or conf < min_conf:
                 continue
             xs = [int(p[0]) for p in bbox]
             ys = [int(p[1]) for p in bbox]
-            poly = []
-            for i in range(4):
-                poly.extend([xs[i], ys[i]])
+            bbox_vals = (min(xs), min(ys), max(xs), max(ys)) if include_bboxes else (None, None, None, None)
+            poly = None
+            if include_polygons:
+                poly = []
+                for i in range(4):
+                    poly.extend([xs[i], ys[i]])
             out.append(TextRegion(
                 text=text.strip(),
                 confidence=float(conf),
-                x1=min(xs), y1=min(ys), x2=max(xs), y2=max(ys),
+                x1=bbox_vals[0], y1=bbox_vals[1], x2=bbox_vals[2], y2=bbox_vals[3],
                 polygon=poly
             ))
         return out
@@ -108,7 +111,10 @@ class Predictor(BasePredictor):
         languages: str = Input(description="Comma-separated language codes. Empty = defaults", default=""),
         min_confidence: float = Input(description="Minimum confidence (0.0-1.0)", default=0.25, ge=0.0, le=1.0),
         preprocessing: bool = Input(description="Apply preprocessing (recommended)", default=True),
-    ) -> List[TextRegion]:
+        text_only: bool = Input(description="Return only text lines (list of strings)", default=False),
+        include_bboxes: bool = Input(description="Include x1,y1,x2,y2 in output", default=True),
+        include_polygons: bool = Input(description="Include 4-point polygon as flat list", default=True),
+    ) -> Any:
         # Load and preprocess image
         arr = self._load_image(image)
         processed = self._preprocess(arr, preprocessing)
@@ -133,10 +139,12 @@ class Predictor(BasePredictor):
             add_margin=0.1,
         )
 
-        detections = self._to_detections(results, min_confidence)
+        detections = self._to_detections(results, min_confidence, include_bboxes, include_polygons)
         # Cleanup
         if self.use_gpu:
             gc.collect()
             torch.cuda.empty_cache()
 
-        return [r.model_dump() for r in detections]
+        if text_only:
+            return [r.text for r in detections]
+        return [r.model_dump(exclude_none=True) for r in detections]
