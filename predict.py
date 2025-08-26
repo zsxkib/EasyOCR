@@ -3,7 +3,7 @@ Screenshot OCR with EasyOCR
 Concise, readable implementation for production Cog deployment.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 import gc
 
 import cv2
@@ -16,21 +16,19 @@ from cog import BasePredictor, Input, Path
 from pydantic import BaseModel, Field
 
 
-class BBox(BaseModel):
+class TextRegion(BaseModel):
+    text: str
+    confidence: float = Field(ge=0.0, le=1.0)
     x1: int
     y1: int
     x2: int
     y2: int
-
-
-class TextRegion(BaseModel):
-    text: str
-    confidence: float = Field(ge=0.0, le=1.0)
-    bbox: BBox
-    polygon: List[Tuple[int, int]]
+    polygon: List[int]
 
 
 DEFAULT_LANGS = ["en", "es", "fr", "de", "it", "pt"]
+
+
 
 
 class Predictor(BasePredictor):
@@ -92,12 +90,15 @@ class Predictor(BasePredictor):
                 continue
             xs = [int(p[0]) for p in bbox]
             ys = [int(p[1]) for p in bbox]
+            poly = []
+            for i in range(4):
+                poly.extend([xs[i], ys[i]])
             out.append(TextRegion(
-                    text=text.strip(),
-                    confidence=float(conf),
-                    bbox=BBox(x1=min(xs), y1=min(ys), x2=max(xs), y2=max(ys)),
-                    polygon=[(xs[i], ys[i]) for i in range(4)],
-              ))
+                text=text.strip(),
+                confidence=float(conf),
+                x1=min(xs), y1=min(ys), x2=max(xs), y2=max(ys),
+                polygon=poly
+            ))
         return out
 
     # ----- Prediction -----
@@ -133,10 +134,6 @@ class Predictor(BasePredictor):
         )
 
         detections = self._to_detections(results, min_confidence)
-        # Aggregate
-        text = " ".join(d["text"] for d in detections)
-        avg = round(sum(d["confidence"] for d in detections) / len(detections), 3) if detections else 0.0
-
         # Cleanup
         if self.use_gpu:
             gc.collect()
