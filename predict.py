@@ -3,7 +3,7 @@ Screenshot OCR with EasyOCR
 Concise, readable implementation for production Cog deployment.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import gc
 
 import cv2
@@ -12,6 +12,22 @@ from PIL import Image
 import easyocr
 import torch
 from cog import BasePredictor, Input, Path
+
+from pydantic import BaseModel, Field
+
+
+class BBox(BaseModel):
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+
+class TextRegion(BaseModel):
+    text: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    bbox: BBox
+    polygon: List[Tuple[int, int]]
 
 
 DEFAULT_LANGS = ["en", "es", "fr", "de", "it", "pt"]
@@ -69,21 +85,19 @@ class Predictor(BasePredictor):
             arr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
         return arr
 
-    def _to_detections(self, results: List, min_conf: float) -> List[Dict[str, Any]]:
-        out: List[Dict[str, Any]] = []
+    def _to_detections(self, results: List, min_conf: float) -> List[TextRegion]:
+        out: List[TextRegion] = []
         for bbox, text, conf in results:
             if not text or conf < min_conf:
                 continue
             xs = [int(p[0]) for p in bbox]
             ys = [int(p[1]) for p in bbox]
-            out.append(
-                {
-                    "text": text.strip(),
-                    "confidence": float(conf),
-                    "bbox": {"x1": min(xs), "y1": min(ys), "x2": max(xs), "y2": max(ys)},
-                    "polygon": [[xs[i], ys[i]] for i in range(4)],
-                }
-            )
+            out.append(TextRegion(
+                    text=text.strip(),
+                    confidence=float(conf),
+                    bbox=BBox(x1=min(xs), y1=min(ys), x2=max(xs), y2=max(ys)),
+                    polygon=[(xs[i], ys[i]) for i in range(4)],
+              ))
         return out
 
     # ----- Prediction -----
@@ -93,7 +107,7 @@ class Predictor(BasePredictor):
         languages: str = Input(description="Comma-separated language codes. Empty = defaults", default=""),
         min_confidence: float = Input(description="Minimum confidence (0.0-1.0)", default=0.25, ge=0.0, le=1.0),
         preprocessing: bool = Input(description="Apply preprocessing (recommended)", default=True),
-    ) -> Dict[str, Any]:
+    ) -> List[TextRegion]:
         # Load and preprocess image
         arr = self._load_image(image)
         processed = self._preprocess(arr, preprocessing)
@@ -128,13 +142,4 @@ class Predictor(BasePredictor):
             gc.collect()
             torch.cuda.empty_cache()
 
-        return {
-            "text": text,
-            "detected_text": detections,
-            "total_detections": len(detections),
-            "average_confidence": avg,
-            "preprocessing_applied": preprocessing,
-            "languages_used": langs,
-            "original_image_size": {"width": arr.shape[1], "height": arr.shape[0]},
-            "success": True,
-        }
+        return [r.model_dump() for r in detections]

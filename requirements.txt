@@ -18,3 +18,5 @@ scikit-image>=0.21.0              # Advanced image processing algorithms
 # Production Utilities
 psutil>=5.9.0                     # System monitoring and resource management
 requests>=2.31.0                  # HTTP client for potential integrations
+
+pydantic>=2.5.0
