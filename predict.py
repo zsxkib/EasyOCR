@@ -28,7 +28,7 @@ class TextRegion(BaseModel):
 
 
 class ModelOutput(BaseModel):
-    text_file: Path
+    markdown: Path
     metadata: str
 
 
@@ -157,22 +157,28 @@ class Predictor(BasePredictor):
             gc.collect()
             torch.cuda.empty_cache()
 
-        # Create output files
+        # Create markdown output
         if text_only:
-            text_content = "\n".join(r.text for r in detections)
+            # Simple markdown with extracted text
+            markdown_content = "# Extracted Text\n\n" + "\n\n".join(r.text for r in detections)
         else:
-            # Create structured text with bounding boxes as comments
-            lines = []
-            for r in detections:
-                bbox_info = ""
+            # Structured markdown with metadata
+            markdown_lines = ["# OCR Extraction Results", ""]
+            for i, r in enumerate(detections, 1):
+                markdown_lines.append(f"## Region {i}")
+                markdown_lines.append(f"**Text:** {r.text}")
+                markdown_lines.append(f"**Confidence:** {r.confidence:.3f}")
                 if include_bboxes and r.x1 is not None:
-                    bbox_info = f" <!-- bbox: {r.x1},{r.y1},{r.x2},{r.y2} -->"
-                lines.append(f"{r.text}{bbox_info}")
-            text_content = "\n".join(lines)
+                    markdown_lines.append(f"**Bounding Box:** ({r.x1}, {r.y1}) to ({r.x2}, {r.y2})")
+                if include_polygons and r.polygon:
+                    points = ", ".join(f"({r.polygon[i]}, {r.polygon[i+1]})" for i in range(0, len(r.polygon), 2))
+                    markdown_lines.append(f"**Polygon:** {points}")
+                markdown_lines.append("")
+            markdown_content = "\n".join(markdown_lines)
         
-        # Write to output file
-        out_file = Path("extracted_text.txt")
-        out_file.write_text(text_content, encoding='utf-8')
+        # Write to markdown file
+        out_file = Path("extracted_text.md")
+        out_file.write_text(markdown_content, encoding='utf-8')
         
         # Create metadata
         metadata = {
@@ -187,6 +193,6 @@ class Predictor(BasePredictor):
         }
         
         return ModelOutput(
-            text_file=out_file,
+            markdown=out_file,
             metadata=json.dumps(metadata, indent=2)
         )
