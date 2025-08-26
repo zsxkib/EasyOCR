@@ -3,7 +3,7 @@ Screenshot OCR with EasyOCR
 Concise, readable implementation for production Cog deployment.
 """
 
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 import gc
 
 import cv2
@@ -91,9 +91,9 @@ class Predictor(BasePredictor):
         self,
         image: Path = Input(description="Screenshot or image file"),
         languages: str = Input(description="Comma-separated language codes. Empty = defaults", default=""),
-        min_confidence: str = Input(description="Minimum confidence (0.0-1.0)", default="0.25"),
+        min_confidence: float = Input(description="Minimum confidence (0.0-1.0)", default=0.25, ge=0.0, le=1.0),
         preprocessing: bool = Input(description="Apply preprocessing (recommended)", default=True),
-    ) -> Any:
+    ) -> Dict[str, Any]:
         # Load and preprocess image
         arr = self._load_image(image)
         processed = self._preprocess(arr, preprocessing)
@@ -117,13 +117,8 @@ class Predictor(BasePredictor):
             ycenter_ths=0.5,
             add_margin=0.1,
         )
-        min_conf = float(min_confidence) if isinstance(min_confidence, (int, float, str)) else 0.25
-        try:
-            min_conf = float(min_confidence)
-        except Exception:
-            min_conf = 0.25
-        detections = self._to_detections(results, min_conf)
 
+        detections = self._to_detections(results, min_confidence)
         # Aggregate
         text = " ".join(d["text"] for d in detections)
         avg = round(sum(d["confidence"] for d in detections) / len(detections), 3) if detections else 0.0

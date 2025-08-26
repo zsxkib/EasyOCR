@@ -1,18 +1,16 @@
-# Production-Ready Screenshot OCR with EasyOCR
-# Optimized for Replicate deployment at scale
-# Reference: https://cog.run/yaml
+# Cog config for Screenshot OCR (GPU-enabled)
 
 build:
   # GPU configuration - set to true for production deployment
   # For local Mac development: false (CPU only)
   # For Replicate production: true (NVIDIA L40s/A100)
-  gpu: true  # Change to true for production deployment
+  gpu: true  # set false for CPU-only dev
   cuda: "12.1"  # Latest CUDA for production GPU support
   
-  # Python 3.11 for optimal compatibility with EasyOCR and PyTorch
+  # Python runtime
   python_version: "3.11"
   
-  # Essential system packages for OpenCV and image processing
+  # System packages for OpenCV
   system_packages:
     - "libgl1-mesa-glx"      # OpenGL support for OpenCV
     - "libglib2.0-0"         # GLib for system operations
@@ -29,11 +27,11 @@ build:
     - "libwebp-dev"          # WebP support
     - "zlib1g-dev"           # Compression library
   
-  # Python dependencies from requirements.txt
+  # Python deps
   python_requirements: requirements.txt
   
-  # Pre-download core EasyOCR models during build for faster cold starts
-  # Additional languages will be downloaded on first use
+  # Pre-download core EasyOCR models to improve cold start
+  # Additional languages download on first use
   run:
     - "python -c 'import easyocr; reader = easyocr.Reader([\"en\"], gpu=False, download_enabled=True)'"
     - "python -c 'import easyocr; reader = easyocr.Reader([\"es\", \"fr\", \"de\"], gpu=False, download_enabled=True)'"
