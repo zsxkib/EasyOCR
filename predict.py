@@ -157,24 +157,32 @@ class Predictor(BasePredictor):
             gc.collect()
             torch.cuda.empty_cache()
 
-        # Create markdown output
-        if text_only:
-            # Simple markdown with extracted text
-            markdown_content = "# Extracted Text\n\n" + "\n\n".join(r.text for r in detections)
-        else:
-            # Structured markdown with metadata
-            markdown_lines = ["# OCR Extraction Results", ""]
-            for i, r in enumerate(detections, 1):
-                markdown_lines.append(f"## Region {i}")
-                markdown_lines.append(f"**Text:** {r.text}")
-                markdown_lines.append(f"**Confidence:** {r.confidence:.3f}")
-                if include_bboxes and r.x1 is not None:
-                    markdown_lines.append(f"**Bounding Box:** ({r.x1}, {r.y1}) to ({r.x2}, {r.y2})")
-                if include_polygons and r.polygon:
-                    points = ", ".join(f"({r.polygon[i]}, {r.polygon[i+1]})" for i in range(0, len(r.polygon), 2))
-                    markdown_lines.append(f"**Polygon:** {points}")
-                markdown_lines.append("")
-            markdown_content = "\n".join(markdown_lines)
+        # Create markdown output preserving original formatting as much as possible
+        markdown_content = ""
+        
+        # Simple approach: reconstruct text with basic markdown formatting
+        # Sort regions by Y position to maintain reading order
+        for r in detections:
+            text = r.text.strip()
+            if not text:
+                continue
+                
+            # Basic heuristics for markdown formatting based on text characteristics
+            if len(text) < 50 and (text.isupper() or any(word in text.upper() for word in ['CHAPTER', 'SECTION', 'PART'])):
+                # Likely a header - make it a markdown header
+                if len(text) < 20:
+                    markdown_content += f"# {text}\n\n"
+                else:
+                    markdown_content += f"## {text}\n\n"
+            elif text.endswith((':', '.')):
+                # Complete sentences/paragraphs
+                markdown_content += f"{text}\n\n"
+            else:
+                # Incomplete text or continuation
+                markdown_content += f"{text} "
+        
+        # Clean up extra whitespace
+        markdown_content = markdown_content.strip()
         
         # Write to markdown file
         out_file = Path("extracted_text.md")
