@@ -1,12 +1,20 @@
-torch
-torchvision>=0.5
-opencv-python-headless
-scipy
-numpy
-Pillow
-scikit-image
-python-bidi
-PyYAML
-Shapely
-pyclipper
-ninja
+# Production-Ready Dependencies for Screenshot OCR
+# Optimized for both Mac development (CPU) and Replicate deployment (GPU)
+
+# Core OCR and Deep Learning
+easyocr>=1.7.0                    # Primary OCR engine with multi-language support
+# torch and torchvision are pre-installed in the base image
+
+# Image Processing Stack
+opencv-python-headless>=4.8.0     # Computer vision without GUI dependencies
+Pillow>=10.0.0                    # PIL for image format handling
+numpy>=1.24.0                     # Numerical computing foundation
+scipy>=1.11.0                     # Scientific computing for advanced preprocessing
+scikit-image>=0.21.0              # Advanced image processing algorithms
+
+# EasyOCR Dependencies (let EasyOCR manage its own dependencies)
+# These will be automatically installed with easyocr
+
+# Production Utilities
+psutil>=5.9.0                     # System monitoring and resource management
+requests>=2.31.0                  # HTTP client for potential integrations

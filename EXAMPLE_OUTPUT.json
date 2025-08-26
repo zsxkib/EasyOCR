@@ -1,0 +1,60 @@
+{
+  "text": "The Life and Work of Fredson Bowers by G. THOMAS TANSELLE N EVERY FIELD OF ENDEAVOR THERE ARE A FEW FIGURES WHOSE AGCOM- plishment and influence cause them to be the symbols of their age; their careers and oeuvres become the touchstones by which the field is measured and its history told. In the related pursuits of analytical and descriptive bibliography, textual criticism, and scholarly editing, Fredson Bowers was such a figure, dominating the four decades after 1949, when his Principles of Bibliographical Description was pub- lished. By 1973 the period was already being called 'the age of Bowers': in that year Norman Sanders, writing the chapter on textual scholarship for Stanley Wells's Shakespeare: Select Bibliographies, gave this title to a section of his essay. For most people, it would be achievement enough to rise to such a position in a field as complex as Shakespearean textual studies; but Bowers played an equally important role in other areas. Editors of nineteenth-century American authors, for example, would also have to call the recent past 'the age of Bowers,' as would the writers of descriptive bibliographies of authors and presses. His ubiquity in the broad field of bibliographical and textual study, his seemingly com- plete possession of it, distinguished him from his illustrious predeces- sors and made him the personification of bibliographical scholarship in his time. When in 1969 Bowers was awarded the Gold Medal of the Biblio- graphical Society in London, John Carter's citation referred to the Principles as 'majestic,' called Bowers's current projects 'formidable,' said that he had 'imposed critical discipline' on the texts of several authors, described Studies in Bibliography as a 'great and continuing achievement,' and included among his characteristics 'uncompromising seriousness of purpose' and 'professional intensity.' Bowers was not unaccustomed to such encomia, but he had also experienced his share of attacks: his scholarly positions were not universally popular, and he expressed them with an aggressiveness that almost seemed calculated to",
+  "detected_text": [
+    {
+      "text": "The Life and Work of",
+      "confidence": 0.97,
+      "bbox": {"x1": 245, "y1": 45, "x2": 520, "y2": 75},
+      "polygon": [[245, 45], [520, 45], [520, 75], [245, 75]]
+    },
+    {
+      "text": "Fredson Bowers",
+      "confidence": 0.98,
+      "bbox": {"x1": 285, "y1": 85, "x2": 480, "y2": 115},
+      "polygon": [[285, 85], [480, 85], [480, 115], [285, 115]]
+    },
+    {
+      "text": "by",
+      "confidence": 0.95,
+      "bbox": {"x1": 365, "y1": 125, "x2": 385, "y2": 145},
+      "polygon": [[365, 125], [385, 125], [385, 145], [365, 145]]
+    },
+    {
+      "text": "G. THOMAS TANSELLE",
+      "confidence": 0.96,
+      "bbox": {"x1": 280, "y1": 155, "x2": 485, "y2": 175},
+      "polygon": [[280, 155], [485, 155], [485, 175], [280, 175]]
+    },
+    {
+      "text": "N EVERY FIELD OF ENDEAVOR THERE ARE A FEW FIGURES WHOSE AGCOM-",
+      "confidence": 0.92,
+      "bbox": {"x1": 45, "y1": 205, "x2": 720, "y2": 225},
+      "polygon": [[45, 205], [720, 205], [720, 225], [45, 225]]
+    },
+    {
+      "text": "plishment and influence cause them to be the symbols of their age;",
+      "confidence": 0.94,
+      "bbox": {"x1": 45, "y1": 235, "x2": 655, "y2": 255},
+      "polygon": [[45, 235], [655, 235], [655, 255], [45, 255]]
+    },
+    {
+      "text": "their careers and oeuvres become the touchstones by which the",
+      "confidence": 0.93,
+      "bbox": {"x1": 45, "y1": 265, "x2": 620, "y2": 285},
+      "polygon": [[45, 265], [620, 265], [620, 285], [45, 285]]
+    },
+    {
+      "text": "field is measured and its history told. In the related pursuits of",
+      "confidence": 0.91,
+      "bbox": {"x1": 45, "y1": 295, "x2": 675, "y2": 315},
+      "polygon": [[45, 295], [675, 295], [675, 315], [45, 315]]
+    }
+  ],
+  "total_detections": 42,
+  "average_confidence": 0.94,
+  "languages_used": ["en"],
+  "preprocessing_applied": true,
+  "processing_time_ms": 1847.3,
+  "original_image_size": {"width": 800, "height": 1200},
+  "success": true
+}

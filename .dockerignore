@@ -1,0 +1,119 @@
+# Production-optimized Docker ignore for Screenshot OCR
+# Minimizes build context and layer size for fast deployment
+# https://docs.docker.com/engine/reference/builder/#dockerignore-file
+
+# Version control and development files
+.git/
+.gitignore
+.github/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Python development files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+PYMANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+pipfile
+Pipfile.lock
+poetry.lock
+.python-version
+
+# Testing and coverage
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation (keep only README.md)
+*.md
+!README.md
+*.rst
+*.txt
+!requirements.txt
+
+# Local test files and examples
+tests/
+test_*.py
+*_test.py
+examples/
+samples/
+demo/
+benchmarks/
+
+# EasyOCR original repository files (not needed for deployment)
+custom_model.md
+releasenotes.md
+MANIFEST.in
+setup.py
+setup.cfg
+Dockerfile
+scripts/
+trainer/
+unit_test/
+easyocr/  # Use pip-installed package instead
+
+# Temporary and log files
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.log
+logs/
+
+# Test images and media (exclude from production)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+*.svg
+*.pdf
+
+# Configuration overrides
+.env.*
+config.yaml
+config.json

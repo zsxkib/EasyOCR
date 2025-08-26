@@ -1,0 +1,42 @@
+# Production-Ready Screenshot OCR with EasyOCR
+# Optimized for Replicate deployment at scale
+# Reference: https://cog.run/yaml
+
+build:
+  # GPU configuration - set to true for production deployment
+  # For local Mac development: false (CPU only)
+  # For Replicate production: true (NVIDIA L40s/A100)
+  gpu: false  # Change to true for production deployment
+  cuda: "12.1"  # Latest CUDA for production GPU support
+  
+  # Python 3.11 for optimal compatibility with EasyOCR and PyTorch
+  python_version: "3.11"
+  
+  # Essential system packages for OpenCV and image processing
+  system_packages:
+    - "libgl1-mesa-glx"      # OpenGL support for OpenCV
+    - "libglib2.0-0"         # GLib for system operations
+    - "libsm6"               # Session management
+    - "libxext6"             # X11 extensions
+    - "libxrender-dev"       # X rendering
+    - "libgomp1"             # OpenMP for parallel processing
+    - "libglib2.0-dev"       # GLib development headers
+    - "libfontconfig1-dev"   # Font configuration
+    - "libfreetype6-dev"     # FreeType font rendering
+    - "libjpeg-dev"          # JPEG support
+    - "libpng-dev"           # PNG support
+    - "libtiff5-dev"         # TIFF support
+    - "libwebp-dev"          # WebP support
+    - "zlib1g-dev"           # Compression library
+  
+  # Python dependencies from requirements.txt
+  python_requirements: requirements.txt
+  
+  # Pre-download core EasyOCR models during build for faster cold starts
+  # Additional languages will be downloaded on first use
+  run:
+    - "python -c 'import easyocr; reader = easyocr.Reader([\"en\"], gpu=False, download_enabled=True)'"
+    - "python -c 'import easyocr; reader = easyocr.Reader([\"es\", \"fr\", \"de\"], gpu=False, download_enabled=True)'"
+
+# Prediction interface
+predict: "predict.py:Predictor"
