@@ -6,7 +6,7 @@ build:
   # GPU configuration - set to true for production deployment
   # For local Mac development: false (CPU only)
   # For Replicate production: true (NVIDIA L40s/A100)
-  gpu: false  # Change to true for production deployment
+  gpu: true  # Change to true for production deployment
   cuda: "12.1"  # Latest CUDA for production GPU support
   
   # Python 3.11 for optimal compatibility with EasyOCR and PyTorch
