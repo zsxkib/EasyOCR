@@ -1,0 +1,21 @@
+NOTICE
+
+This repository includes code from the EasyOCR project (https://github.com/JaidedAI/EasyOCR),
+which is licensed under the Apache License, Version 2.0. See LICENSE for the full text.
+
+Original contributions in this fork are licensed under the MIT License. See LICENSE-MIT.
+
+Original contributions include, but are not limited to:
+- predict.py
+- cog.yaml
+- README.md
+- SUMMARY.md
+- render_from_coordinates.py
+- test_replicate.py
+- .dockerignore
+
+No changes were made to the upstream EasyOCR library code that would alter its license.
+All upstream notices are preserved in accordance with the Apache License, Version 2.0.
+
+September 2025
+

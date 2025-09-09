@@ -15,12 +15,12 @@ This fork implements a production-ready Cog-wrapped OCR service using EasyOCR fo
 ### Input Schema
 ```yaml
 image: Image file (File)
-languages: Comma-separated language codes (default: "en")
+languages: Comma-separated language codes (default: "", empty = defaults)
 text_only: Return only text without coordinates (default: false)
 preprocessing: Enable image preprocessing (default: true)  
 include_bboxes: Include bounding boxes in output (default: true)
-include_polygons: Include polygon coordinates (default: true)
-min_confidence: Minimum confidence threshold (default: 0.1, range: 0-1)
+include_polygons: Include polygon coordinates (default: false)
+min_confidence: Minimum confidence threshold (default: 0.25, range: 0-1)
 ```
 
 ### Output Schema

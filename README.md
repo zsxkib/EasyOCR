@@ -169,7 +169,11 @@ This is designed to be the **minimal, focused OCR backbone** for camera translat
 
 ## License
 
-MIT License - build awesome camera translation apps! 📸🌍
+This repository contains both original code and upstream EasyOCR code.
+
+- Original code in this fork (predict.py, cog.yaml, README.md, SUMMARY.md, render_from_coordinates.py, test_replicate.py, .dockerignore) is licensed under the MIT License. See LICENSE-MIT.
+- The included upstream EasyOCR code remains licensed under the Apache License 2.0. See LICENSE.
+- See NOTICE for details.
 
 ---
 
