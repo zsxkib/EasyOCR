@@ -5,7 +5,7 @@
 
 <br>
 
-![Replicate](https://replicate.com/zsxkib/easyocr/badge) ![Python](https://img.shields.io/badge/Python-3.11-blue) ![CUDA](https://img.shields.io/badge/CUDA-12.1-green)
+[![Replicate](https://replicate.com/zsxkib/easyocr/badge)](https://replicate.com/zsxkib/easyocr) ![Python](https://img.shields.io/badge/Python-3.11-blue) ![CUDA](https://img.shields.io/badge/CUDA-12.1-green)
 
 ## Quick Start
 
