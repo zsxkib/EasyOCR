@@ -107,6 +107,8 @@ This model handles the **crucial first step**: extracting text with pixel-perfec
 
 ## Examples
 
+Note: render_from_coordinates.py is a local helper for visualization; it is not included in the Replicate container or API.
+
 ### Text Detection Results
 ```python
 # Input: Screenshot of a menu
@@ -150,12 +152,11 @@ def translate_camera_view(image_path):
 ## Repository Structure
 
 ```
-├── predict.py              # Core OCR predictor (205 lines)
-├── cog.yaml               # Deployment configuration
-├── requirements.txt       # Dependencies
-├── test_replicate.py      # Usage examples
-├── render_from_coordinates.py  # Text rendering utility
-└── SUMMARY.md            # Technical documentation
+├── predict.py                   # Core OCR predictor
+├── cog.yaml                    # Deployment configuration
+├── requirements.txt            # Minimal dependencies
+├── render_from_coordinates.py  # Local helper for visualization (not in Replicate)
+└── README.md                   # This file
 ```
 
 ## Contributing
@@ -169,11 +170,7 @@ This is designed to be the **minimal, focused OCR backbone** for camera translat
 
 ## License
 
-This repository contains both original code and upstream EasyOCR code.
-
-- Original code in this fork (predict.py, cog.yaml, README.md, SUMMARY.md, render_from_coordinates.py, test_replicate.py, .dockerignore) is licensed under the MIT License. See LICENSE-MIT.
-- The included upstream EasyOCR code remains licensed under the Apache License 2.0. See LICENSE.
-- See NOTICE for details.
+MIT License — see LICENSE
 
 ---
 
