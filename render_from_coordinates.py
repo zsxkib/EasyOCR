@@ -99,34 +99,62 @@ def main():
     parser.add_argument("json_path", help="Path to JSON file with text regions")
     parser.add_argument("--font", default=None, help="Path to font file")
     parser.add_argument("--padding", type=int, default=30, help="Canvas padding")
+    parser.add_argument("--background", default=None, help="Optional background image to draw on")
     args = parser.parse_args()
     
     # Load OCR data
     with open(args.json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
-    regions = data.get("regions", [])
+    # Support either top-level regions or metadata.regions
+    regions = data.get("regions")
+    if regions is None and isinstance(data.get("metadata"), dict):
+        regions = data["metadata"].get("regions")
     if not regions:
         sys.exit("No regions found in input file")
+
+    def extract_bbox(r):
+        # Primary schema: x1,y1,x2,y2
+        if all(k in r for k in ("x1","y1","x2","y2")):
+            return int(r["x1"]), int(r["y1"]), int(r["x2"]), int(r["y2"])
+        # Fallback schema: bbox [x1,y1,x2,y2]
+        if isinstance(r.get("bbox"), (list, tuple)) and len(r["bbox"]) == 4:
+            x1, y1, x2, y2 = r["bbox"]
+            return int(x1), int(y1), int(x2), int(y2)
+        raise KeyError("Region missing bounding box fields (expected x1,y1,x2,y2 or bbox[4])")
     
     # Calculate canvas size
     padding = args.padding
-    canvas_width = max(r["x2"] for r in regions) + padding
-    canvas_height = max(r["y2"] for r in regions) + padding
+    max_x2 = max(extract_bbox(r)[2] for r in regions)
+    max_y2 = max(extract_bbox(r)[3] for r in regions)
+
+    base_bg = None
+    if args.background:
+        try:
+            base_bg = Image.open(args.background).convert("RGB")
+        except Exception as e:
+            sys.exit(f"Failed to load background image: {e}")
     
-    # Create images
-    img_with_boxes = Image.new("RGB", (canvas_width, canvas_height), "white")
-    img_clean = Image.new("RGB", (canvas_width, canvas_height), "white")
+    target_w = max(max_x2 + padding, base_bg.width if base_bg else 0)
+    target_h = max(max_y2 + padding, base_bg.height if base_bg else 0)
+    
+    # Create images (optionally on top of background)
+    base_canvas = Image.new("RGB", (target_w, target_h), "white")
+    if base_bg is not None:
+        base_canvas.paste(base_bg, (0, 0))
+    
+    img_with_boxes = base_canvas.copy()
+    img_clean = base_canvas.copy()
     
     draw_boxes = ImageDraw.Draw(img_with_boxes)
     draw_clean = ImageDraw.Draw(img_clean)
     
-    print(f"📐 Canvas size: {canvas_width} x {canvas_height}")
+    print(f"📐 Canvas size: {target_w} x {target_h}")
     print(f"📝 Processing {len(regions)} text regions...")
     
     for i, region in enumerate(regions):
-        x1, y1, x2, y2 = region["x1"], region["y1"], region["x2"], region["y2"]
-        text = region.get("text", "")
+        x1, y1, x2, y2 = extract_bbox(region)
+        text = str(region.get("text", ""))
         
         if not text.strip():
             continue

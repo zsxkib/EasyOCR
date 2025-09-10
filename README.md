@@ -109,6 +109,15 @@ This model handles the **crucial first step**: extracting text with pixel-perfec
 
 Note: render_from_coordinates.py is a local helper for visualization; it is not included in the Replicate container or API.
 
+Quick usage:
+- Save OCR regions to a JSON file with a top-level key "regions", each item containing text, x1,y1,x2,y2
+- Optionally pass a background image to draw on
+
+Example:
+```bash
+python render_from_coordinates.py ocr_output.json --background path/to/image.png
+```
+
 ### Text Detection Results
 ```python
 # Input: Screenshot of a menu
