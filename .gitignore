@@ -107,3 +107,9 @@ ENV/
 .vscode/
 .vs/
 .idea/
+
+# Cog build artifacts and runs
+.cog/
+runs/
+rendered_*.png
+extracted_text.md

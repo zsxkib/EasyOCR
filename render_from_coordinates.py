@@ -3,8 +3,17 @@
 Render Text From Coordinates — Background‑aware Boxes
 
 Given text regions with pixel bounding boxes, render each string inside its box
-as large as possible, wrapping if needed, and center it. Outputs a single image:
-- rendered_with_boxes.png (background‑aware box colors + text)
+as large as possible, wrapping if needed, and center it.
+
+Outputs a single image:
+- rendered_with_boxes.png (background‑aware rounded boxes + adaptive text)
+
+Features:
+- Samples the local background color and chooses a matching, subtle fill
+- Rounded corners and adjustable alpha for pleasant overlays
+- Adaptive text color (black/white) with optional stroke for readability
+- Greedy word wrap and binary‑searched font size to maximize legibility
+- Supports either {"regions": [...]} or {"metadata": {"regions": [...]}}
 """
 
 import json
@@ -90,17 +99,53 @@ def average_bg_color(img: Image.Image, x1: int, y1: int, x2: int, y2: int) -> Tu
     r, g, b, *a = small.getpixel((0, 0))
     return int(r), int(g), int(b)
 
-def adjust_color(c: Tuple[int, int, int], delta: int = 12) -> Tuple[int, int, int]:
-    """Slightly lighten the sampled color to keep boxes visible while matching background."""
+def luminance(c: Tuple[int, int, int]) -> float:
     r, g, b = c
-    return min(255, r + delta), min(255, g + delta), min(255, b + delta)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+def clamp(x: int) -> int:
+    return 0 if x < 0 else 255 if x > 255 else x
+
+def lighten(c: Tuple[int, int, int], delta: int) -> Tuple[int, int, int]:
+    r, g, b = c
+    return clamp(r + delta), clamp(g + delta), clamp(b + delta)
+
+def darken(c: Tuple[int, int, int], delta: int) -> Tuple[int, int, int]:
+    r, g, b = c
+    return clamp(r - delta), clamp(g - delta), clamp(b - delta)
+
+def auto_fill_and_outline(bg: Tuple[int, int, int]) -> Tuple[Tuple[int,int,int,int], Tuple[int,int,int,int]]:
+    """Choose a subtle fill and outline based on background brightness."""
+    L = luminance(bg)
+    if L < 128:
+        fill_rgb = lighten(bg, 16)
+        outline_rgb = lighten(bg, 6)
+    else:
+        fill_rgb = darken(bg, 16)
+        outline_rgb = darken(bg, 40)
+    return (*fill_rgb, 120), (*outline_rgb, 180)
+
+def auto_text_and_stroke(bg: Tuple[int, int, int]) -> Tuple[Tuple[int,int,int,int], Tuple[int,int,int,int]]:
+    """Return (text_color, stroke_color) with contrast against background."""
+    L = luminance(bg)
+    if L < 140:
+        # dark bg → light text
+        return (255, 255, 255, 255), (0, 0, 0, 255)
+    else:
+        return (0, 0, 0, 255), (255, 255, 255, 255)
 
 def main():
     parser = argparse.ArgumentParser(description="Render text from OCR coordinates")
     parser.add_argument("json_path", help="Path to JSON file with text regions")
     parser.add_argument("--font", default=None, help="Path to font file")
-    parser.add_argument("--padding", type=int, default=30, help="Canvas padding")
+    parser.add_argument("--padding", type=int, default=30, help="Canvas padding around the entire canvas")
     parser.add_argument("--background", default=None, help="Optional background image to draw on")
+    parser.add_argument("--out", default="rendered_with_boxes.png", help="Output image path")
+    parser.add_argument("--alpha", type=int, default=120, help="Box fill alpha (0-255)")
+    parser.add_argument("--radius", type=int, default=6, help="Corner radius for boxes")
+    parser.add_argument("--inset", type=int, default=2, help="Inner padding inside each box for text")
+    parser.add_argument("--stroke", type=int, default=1, help="Text stroke width for readability")
+    parser.add_argument("--text-color", choices=["auto","black","white"], default="auto", help="Text color mode")
     args = parser.parse_args()
 
     # Load OCR data
@@ -164,16 +209,24 @@ def main():
         box_width = max(1, x2 - x1)
         box_height = max(1, y2 - y1)
 
-        # Sample background color and draw a semi-transparent matching box
+        # Sample background color and draw a subtle, matching box (rounded corners)
         bg_color = average_bg_color(base_canvas, x1, y1, x2, y2)
-        fill = (*adjust_color(bg_color, 12), 120)  # lightened + alpha
-        outline = (*adjust_color(bg_color, -20), 180) if hasattr(tuple(), "__getitem__") else (*bg_color, 180)
-        draw_overlay.rectangle([x1, y1, x2, y2], fill=fill, outline=outline, width=1)
+        fill_rgba, outline_rgba = auto_fill_and_outline(bg_color)
+        # Apply user alpha override
+        fill_rgba = (fill_rgba[0], fill_rgba[1], fill_rgba[2], max(0, min(255, args.alpha)))
+        rect = [x1, y1, x2, y2]
+        try:
+            draw_overlay.rounded_rectangle(rect, radius=max(0, args.radius), fill=fill_rgba, outline=outline_rgba, width=1)
+        except Exception:
+            draw_overlay.rectangle(rect, fill=fill_rgba, outline=outline_rgba, width=1)
 
-        # Find best font size and layout
-        font, lines, line_height = find_best_font_size(draw_measure, text, box_width, box_height, args.font)
+        # Find best font size and layout within inset area
+        inset = max(0, args.inset)
+        tx1, ty1, tx2, ty2 = x1 + inset, y1 + inset, x2 - inset, y2 - inset
+        tw, th = max(1, tx2 - tx1), max(1, ty2 - ty1)
+        font, lines, line_height = find_best_font_size(draw_measure, text, tw, th, args.font)
 
-        prepared.append((x1, y1, x2, y2, font, lines, line_height, text))
+        prepared.append((tx1, ty1, tx2, ty2, font, lines, line_height, text, bg_color))
         print(f"  ✅ {len(prepared):2d}. '{text}' -> {len(lines)} line(s), font size ~{font.size}")
 
     # Composite overlay under the text
@@ -181,19 +234,29 @@ def main():
     draw_text = ImageDraw.Draw(base_canvas)
 
     # Draw text after boxes
-    for (x1, y1, x2, y2, font, lines, line_height, _text) in prepared:
+    for (x1, y1, x2, y2, font, lines, line_height, _text, bg_color) in prepared:
         box_width = max(1, x2 - x1)
         box_height = max(1, y2 - y1)
         total_text_height = len(lines) * line_height
         start_y = y1 + (box_height - total_text_height) // 2
+        # Choose text and stroke colors
+        if args.text_color == "black":
+            text_rgba, stroke_rgba = (0, 0, 0, 255), (255, 255, 255, 255)
+        elif args.text_color == "white":
+            text_rgba, stroke_rgba = (255, 255, 255, 255), (0, 0, 0, 255)
+        else:
+            text_rgba, stroke_rgba = auto_text_and_stroke(bg_color)
         for line_idx, line in enumerate(lines):
             line_width, _ = measure_text(draw_text, line, font)
             line_x = x1 + (box_width - line_width) // 2
             line_y = start_y + line_idx * line_height
-            draw_text.text((line_x, line_y), line, font=font, fill=(0, 0, 0, 255))
+            draw_text.text(
+                (line_x, line_y), line, font=font, fill=text_rgba,
+                stroke_width=max(0, args.stroke), stroke_fill=stroke_rgba
+            )
 
     # Save single output image
-    out_path = "rendered_with_boxes.png"
+    out_path = args.out
     base_canvas.convert("RGB").save(out_path)
     print(f"\n🎉 Generated image: {out_path}")
 
