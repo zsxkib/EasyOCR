@@ -184,3 +184,8 @@ MIT License — see LICENSE
 ---
 
 **Ready to build the next Google Translate Camera?** This OCR foundation has you covered. ✨
+
+---
+
+🐦 Follow [@zsxkib](https://twitter.com/zsxkib) on X  
+💻 Check out more projects [@zsxkib](https://github.com/zsxkib) on GitHub

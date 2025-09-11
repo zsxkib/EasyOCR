@@ -1,0 +1,133 @@
+---
+name: EasyOCR — Screenshot OCR with Coordinates
+description: Extract text with pixel coordinates from screenshots and images. GPU-accelerated, multi-language, perfect for camera-translation overlays.
+github_url: https://github.com/zsxkib/EasyOCR
+license_url: https://github.com/zsxkib/EasyOCR/blob/main/LICENSE
+---
+
+# EasyOCR — Screenshot OCR with Coordinates 📍🔍
+
+## Overview ✨
+**EasyOCR — Screenshot OCR with Coordinates** turns images and screenshots into structured text plus exact pixel coordinates. It’s ideal for camera translation UIs where you overlay translated text exactly where it appeared.
+
+Built on the amazing work by **JaidedAI**’s [EasyOCR](https://github.com/JaidedAI/EasyOCR), this model is wrapped with **Cog** and deployed on **Replicate** for a fast, simple, GPU-ready experience.
+
+- Replicate model: https://replicate.com/zsxkib/easyocr
+- Upstream project: https://github.com/JaidedAI/EasyOCR
+
+## How It Works 🔧
+Under the hood, this model:
+
+1) Preprocesses the image for clarity (DPI upscaling up to 3x for small images, optional CLAHE contrast enhancement, and light denoising).  
+2) Runs EasyOCR detection + recognition with your chosen languages.  
+3) Sorts regions in natural reading order (top-to-bottom, left-to-right).  
+4) Builds markdown that loosely preserves structure (headers, paragraphs) for human-friendly reading.  
+5) Returns both a markdown file path and a metadata JSON string with all regions and their coordinates.
+
+## Why it’s cool 😎
+- Pixel‑perfect overlays: per‑region bounding boxes (x1, y1, x2, y2) with optional polygon points for curved/angled text.
+- Natural reading order: results are sorted top‑to‑bottom, then left‑to‑right for easy iteration.
+- Human‑friendly text: also generates a markdown file that approximates headers and paragraphs.
+- Robust on screenshots: optional DPI upscaling, CLAHE contrast, and gentle denoising lift weak text.
+- Transparent images handled: RGBA/LA inputs are flattened onto white so text isn’t lost.
+- Flexible languages: preloaded with en, es, fr, de, it, pt; override per run with your own set.
+- Clean integration: flat, stable JSON metadata; easy to parse without nested structures.
+
+## What You Can Control 🎮
+Input parameters:
+
+- image: Image file or URL (required)
+- languages: Comma-separated list (e.g., "en,es,fr"). Leave empty to use defaults
+- preprocessing: true/false (enable clarity enhancements)
+- min_confidence: 0.0–1.0 (filter low-confidence detections)
+- include_bboxes: true/false (include x1,y1,x2,y2 for each region)
+- include_polygons: true/false (include polygon points per region)
+- text_only: true/false (suppress coords if you only want text)
+
+Output shape:
+
+- markdown: Path to a generated .md file containing readable extracted text
+- metadata: JSON string containing:
+  - Global: total_regions, avg_confidence, languages_used, preprocessing status
+  - Regions (sorted in reading order): each region includes
+    - text
+    - confidence
+    - bounding box coordinates: x1, y1, x2, y2 (pixel positions in the original image)
+    - optional polygon points (x,y pairs) when include_polygons=true
+
+## Quick Start 🚀
+
+Use it directly on Replicate:
+- Open https://replicate.com/zsxkib/easyocr
+- Upload an image or paste a URL, then click Run
+- The page provides ready-made snippets for Python, JavaScript, and cURL automatically
+
+Includes per-region pixel coordinates (x1, y1, x2, y2) and optional polygon points for precise overlays.
+
+## Pre-loaded Features 🧰
+- Uses EasyOCR’s robust detection/recognition models  
+- Automatically downloads any required language models on first use and caches them  
+- Defaults are tuned for screenshots and mobile captures
+
+## Performance & reliability ⚡
+- GPU‑aware: automatically uses GPU when available, CPU fallback otherwise.
+- Fast cold‑start: an internal warm‑up reduces first‑run latency on new containers.
+- Tuned OCR thresholds for UI text: improved accuracy on menus, buttons, and app layouts.
+- Resource cleanup: frees GPU memory between runs for stable long‑lived deployments.
+
+## Getting Other Languages 🌍
+You can expand language support simply by setting the languages parameter:
+
+1) Decide which languages you need (e.g., English + Spanish + French: "en,es,fr").  
+2) Pass them via languages="en,es,fr".  
+3) The necessary recognition models will auto-download and be cached for future runs.
+
+Tip: Coordinate overlay works regardless of language; just ensure include_bboxes=true so you get x1,y1,x2,y2 per region.
+
+## Best Use Cases 🎯
+- Camera translation overlays (Google Translate-style)  
+- UI/screenshot text extraction for localization  
+- Accessibility: read out visible text with positions  
+- Receipts, menus, and signage parsing  
+- In-app text analytics where placement matters
+
+## Examples 📌
+- Camera translation overlay: place translated text at the exact coordinates returned by the model.
+- UI localization: extract strings from a screenshot and map translations to their screen positions.
+- Accessibility: read out visible text in natural reading order or highlight regions interactively.
+
+## Current Limits ⚠️
+- Curved text, heavy stylization, or extreme perspective can reduce accuracy  
+- Very large images increase latency; consider downscaling for speed  
+- Polygons are optional and slower; bounding boxes are recommended for overlays  
+- This is not a full document-layout parser (tables/columns grouping is minimal)
+
+## Coming Soon 🚀
+- Optional language auto-detection  
+- Improved paragraph/heading grouping  
+- PDF input helper and multi-page handling  
+- Lightweight table/column grouping heuristics
+
+## Credits and Thanks 📚
+This model builds on the awesome work from the EasyOCR team and the open-source ecosystem:
+- EasyOCR by JaidedAI: https://github.com/JaidedAI/EasyOCR  
+- PyTorch, OpenCV, NumPy, Pydantic  
+- Cog + Replicate for deployment
+
+## Terms of Use 📜
+Use responsibly and comply with all applicable laws. Prohibited uses include (non-exhaustive):
+- Collecting or processing personal data without consent (e.g., identity docs)  
+- Mass surveillance or targeted tracking  
+- Circumventing security measures or CAPTCHAs  
+- Generating or facilitating harassment, discrimination, or illegal activity  
+- Any activity that violates third-party terms or privacy expectations
+
+## Disclaimer ‼️
+This software is provided “as is,” without warranty of any kind. The authors and contributors are not liable for any direct, indirect, incidental, or consequential damages arising from its use or misuse.
+
+---
+
+⭐ Star the repo on GitHub: https://github.com/zsxkib/EasyOCR  
+🐦 Follow @zsxkib on X: https://twitter.com/zsxkib  
+💻 More projects on GitHub: https://github.com/zsxkib
+
