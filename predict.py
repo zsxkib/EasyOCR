@@ -116,7 +116,28 @@ class Predictor(BasePredictor):
     def predict(
         self,
         image: Path = Input(description="Screenshot or image file"),
-        languages: str = Input(description="Comma-separated language codes. Empty = defaults", default=""),
+        languages: str = Input(
+            description="Languages preset or custom list",
+            default="auto",
+            choices=[
+                "auto",
+                "en",
+                "es",
+                "fr",
+                "de",
+                "it",
+                "pt",
+                "en,es",
+                "en,es,fr",
+                "en,es,fr,de",
+                "en,es,fr,de,it,pt",
+                "custom",
+            ],
+        ),
+        custom_languages: str = Input(
+            description="Custom language codes (comma-separated) — used when languages=custom",
+            default="",
+        ),
         min_confidence: float = Input(description="Minimum confidence (0.0-1.0)", default=0.25, ge=0.0, le=1.0),
         preprocessing: bool = Input(description="Apply preprocessing (recommended)", default=True),
         text_only: bool = Input(description="Return only text lines (list of strings)", default=False),
@@ -127,13 +148,17 @@ class Predictor(BasePredictor):
         arr = self._load_image(image)
         processed = self._preprocess(arr, preprocessing)
 
-        # Use specified languages if provided
-        if languages.strip():
-            langs = [s.strip() for s in languages.split(",") if s.strip()]
-            reader = easyocr.Reader(langs, gpu=self.use_gpu, verbose=False)
-        else:
+        # Determine languages from preset or custom
+        chosen = (languages or "auto").strip()
+        if chosen == "auto":
             langs = DEFAULT_LANGS
             reader = self.reader
+        elif chosen == "custom":
+            langs = [s.strip() for s in custom_languages.split(",") if s.strip()] or DEFAULT_LANGS
+            reader = easyocr.Reader(langs, gpu=self.use_gpu, verbose=False)
+        else:
+            langs = [s.strip() for s in chosen.split(",") if s.strip()]
+            reader = easyocr.Reader(langs, gpu=self.use_gpu, verbose=False)
 
         # OCR
         results = reader.readtext(
