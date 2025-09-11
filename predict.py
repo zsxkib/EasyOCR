@@ -6,6 +6,7 @@ Concise, readable implementation for production Cog deployment.
 from typing import Any, Dict, List, Optional
 import gc
 import json
+import os
 
 import cv2
 import numpy as np
@@ -39,37 +40,68 @@ class Predictor(BasePredictor):
     """Production-grade screenshot OCR with minimal, clear code."""
 
     def setup(self) -> None:
-        # Use GPU if available; this runs once per container.
+        # Use GPU if available; initialize lazily to keep memory low on CPU-only hosts.
         self.use_gpu = torch.cuda.is_available()
-        self.reader = easyocr.Reader(DEFAULT_LANGS, gpu=self.use_gpu, verbose=False)
-        # Warm up to avoid first-request latency.
-        img = np.full((60, 160, 3), 255, np.uint8)
-        cv2.putText(img, "TEST", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
-        _ = self.reader.readtext(img, detail=0)
+        # Be conservative with threads on CPU
+        os.environ.setdefault("OMP_NUM_THREADS", "1")
+        os.environ.setdefault("MKL_NUM_THREADS", "1")
+        os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+        os.environ.setdefault("NUMEXPR_NUM_THREADS", "1")
+        try:
+            cv2.setNumThreads(0)
+        except Exception:
+            pass
+        self._reader_cache: Dict[tuple, easyocr.Reader] = {}
+        self._default_langs = tuple(DEFAULT_LANGS)
 
-    def _preprocess(self, img: np.ndarray, enable: bool) -> np.ndarray:
-        """Simple, fast preprocessing that helps most screenshots:
-        - Upscale small images (caps at 3x)
-        - Optional CLAHE and light denoising
+    def _get_reader(self, langs: List[str]) -> easyocr.Reader:
+        key = tuple(langs)
+        rdr = self._reader_cache.get(key)
+        if rdr is None:
+            rdr = easyocr.Reader(langs, gpu=self.use_gpu, verbose=False)
+            self._reader_cache[key] = rdr
+        return rdr
+
+    def _preprocess(
+        self,
+        img: np.ndarray,
+        enable: bool,
+        upscale_min_dim: int = 600,
+        clahe: bool = True,
+        denoise_strength: int = 0,
+        sharpen: bool = True,
+    ) -> np.ndarray:
+        """Balanced preprocessing aimed at preserving small punctuation:
+        - Upscale small images to at least `upscale_min_dim` on the shorter side (max 3x)
+        - Optional CLAHE (mild) on grayscale to improve contrast
+        - Optional denoising (disabled by default)
+        - Optional mild unsharp masking to restore edge detail
         """
         h, w = img.shape[:2]
-        if min(h, w) < 600:  # DPI upsample for small screenshots
-            scale = min(3.0, 600.0 / max(1.0, float(min(h, w))))
+        if upscale_min_dim > 0 and min(h, w) < upscale_min_dim:
+            scale = min(3.0, float(upscale_min_dim) / max(1.0, float(min(h, w))))
             img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_CUBIC)
 
         if not enable:
             return img
 
-        # Contrast enhancement (CLAHE) on grayscale then back to BGR
-        if img.ndim == 3:
+        # Contrast enhancement (CLAHE) — mild to avoid blowing out punctuation
+        if clahe and img.ndim == 3:
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            gray = clahe.apply(gray)
+            clahe_op = cv2.createCLAHE(clipLimit=1.8, tileGridSize=(8, 8))
+            gray = clahe_op.apply(gray)
             img = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
 
-        # Light denoising to clean compression artifacts
-        if img.ndim == 3:
-            img = cv2.fastNlMeansDenoisingColored(img, None, 6, 6, 7, 21)
+        # Optional denoising — keep small by default as it can erase punctuation
+        if denoise_strength > 0 and img.ndim == 3:
+            hs = max(1, min(15, int(denoise_strength)))
+            img = cv2.fastNlMeansDenoisingColored(img, None, hs, hs, 7, 21)
+
+        # Mild unsharp mask to keep apostrophes/accents
+        if sharpen and img.ndim == 3:
+            blur = cv2.GaussianBlur(img, (0, 0), sigmaX=1.0)
+            img = cv2.addWeighted(img, 1.25, blur, -0.25, 0)
+
         return img
 
     def _load_image(self, path: Path) -> np.ndarray:
@@ -138,27 +170,53 @@ class Predictor(BasePredictor):
             description="Custom language codes (comma-separated) — used when languages=custom",
             default="",
         ),
-        min_confidence: float = Input(description="Minimum confidence (0.0-1.0)", default=0.25, ge=0.0, le=1.0),
+        # OCR controls
+        ocr_decoder: str = Input(description="Text decoder", default="greedy", choices=["greedy", "beamsearch"]),
+        beam_width: int = Input(description="Beam width (when decoder=beamsearch)", default=5, ge=1, le=10),
+        allow_basic_punct: bool = Input(description="Restrict to common punctuation to avoid odd symbols", default=True),
+        allow_brackets: bool = Input(description="Permit brackets []{}<>", default=False),
+        # Preprocess controls
         preprocessing: bool = Input(description="Apply preprocessing (recommended)", default=True),
+        upscale_min_dim: int = Input(description="Upscale small images so the shorter side reaches this size (px)", default=600, ge=0, le=4000),
+        clahe: bool = Input(description="Apply mild CLAHE contrast enhancement", default=True),
+        denoise_strength: int = Input(description="Denoising strength (0=off, 1-15)", default=0, ge=0, le=15),
+        sharpen: bool = Input(description="Apply mild unsharp mask to preserve small punctuation", default=True),
+        # Output controls
+        min_confidence: float = Input(description="Minimum confidence (0.0-1.0)", default=0.25, ge=0.0, le=1.0),
         text_only: bool = Input(description="Return only text lines (list of strings)", default=False),
         include_bboxes: bool = Input(description="Include x1,y1,x2,y2 in output", default=True),
         include_polygons: bool = Input(description="Include 4-point polygon as flat list", default=False),
     ) -> ModelOutput:
         # Load and preprocess image
         arr = self._load_image(image)
-        processed = self._preprocess(arr, preprocessing)
+        processed = self._preprocess(
+            arr,
+            preprocessing,
+            upscale_min_dim=upscale_min_dim,
+            clahe=clahe,
+            denoise_strength=denoise_strength,
+            sharpen=sharpen,
+        )
 
         # Determine languages from preset or custom
         chosen = (languages or "auto").strip()
         if chosen == "auto":
             langs = DEFAULT_LANGS
-            reader = self.reader
+            reader = self._get_reader(langs)
         elif chosen == "custom":
             langs = [s.strip() for s in custom_languages.split(",") if s.strip()] or DEFAULT_LANGS
-            reader = easyocr.Reader(langs, gpu=self.use_gpu, verbose=False)
+            reader = self._get_reader(langs)
         else:
             langs = [s.strip() for s in chosen.split(",") if s.strip()]
-            reader = easyocr.Reader(langs, gpu=self.use_gpu, verbose=False)
+            reader = self._get_reader(langs)
+
+        # Character allowlist (optional)
+        allowlist = None
+        if allow_basic_punct:
+            letters_digits = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            basic_punct = " .,:;!?\'\"-–—_/&%$@#()+*=“”‘’`~^|\\"
+            brackets = "[]{}<>" if allow_brackets else ""
+            allowlist = letters_digits + basic_punct + brackets
 
         # OCR
         results = reader.readtext(
@@ -170,6 +228,11 @@ class Predictor(BasePredictor):
             slope_ths=0.1,
             ycenter_ths=0.5,
             add_margin=0.1,
+            decoder=ocr_decoder,
+            beamWidth=beam_width,
+            allowlist=allowlist,
+            batch_size=1,
+            workers=0,
         )
 
         detections = self._to_detections(results, min_confidence, include_bboxes, include_polygons)

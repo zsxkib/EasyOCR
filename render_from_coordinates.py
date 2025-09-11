@@ -134,6 +134,22 @@ def auto_text_and_stroke(bg: Tuple[int, int, int]) -> Tuple[Tuple[int,int,int,in
     else:
         return (0, 0, 0, 255), (255, 255, 255, 255)
 
+def estimate_text_is_dark(img: Image.Image, x1: int, y1: int, x2: int, y2: int) -> bool:
+    """Heuristic: downsample crop and check the 25th percentile luminance.
+    If the lower quartile is dark, we assume original text was dark.
+    """
+    x1, y1 = max(0, x1), max(0, y1)
+    x2, y2 = max(x1 + 1, x2), max(y1 + 1, y2)
+    crop = img.crop((x1, y1, x2, y2)).convert("L")
+    # small sample for speed and stability
+    crop = crop.resize((32, 32), resample=Image.BOX)
+    vals = sorted(crop.getdata())
+    if not vals:
+        return True  # default to dark text on empty input
+    idx = max(0, min(len(vals) - 1, int(0.25 * len(vals))))
+    p25 = vals[idx]
+    return p25 < 110
+
 def main():
     parser = argparse.ArgumentParser(description="Render text from OCR coordinates")
     parser.add_argument("json_path", help="Path to JSON file with text regions")
@@ -141,7 +157,7 @@ def main():
     parser.add_argument("--padding", type=int, default=30, help="Canvas padding around the entire canvas")
     parser.add_argument("--background", default=None, help="Optional background image to draw on")
     parser.add_argument("--out", default="rendered_with_boxes.png", help="Output image path")
-    parser.add_argument("--alpha", type=int, default=120, help="Box fill alpha (0-255)")
+    parser.add_argument("--alpha", type=int, default=220, help="Box fill alpha (0-255)")
     parser.add_argument("--radius", type=int, default=6, help="Corner radius for boxes")
     parser.add_argument("--inset", type=int, default=2, help="Inner padding inside each box for text")
     parser.add_argument("--stroke", type=int, default=1, help="Text stroke width for readability")
@@ -239,13 +255,25 @@ def main():
         box_height = max(1, y2 - y1)
         total_text_height = len(lines) * line_height
         start_y = y1 + (box_height - total_text_height) // 2
-        # Choose text and stroke colors
+        # Choose text and stroke colors (respect likely original tone where possible)
         if args.text_color == "black":
             text_rgba, stroke_rgba = (0, 0, 0, 255), (255, 255, 255, 255)
         elif args.text_color == "white":
             text_rgba, stroke_rgba = (255, 255, 255, 255), (0, 0, 0, 255)
         else:
-            text_rgba, stroke_rgba = auto_text_and_stroke(bg_color)
+            # Prefer black on light backgrounds, white on dark backgrounds;
+            # only use the text-tone heuristic for mid luminance cases.
+            Lbg = luminance(bg_color)
+            if Lbg >= 150:
+                text_rgba, stroke_rgba = (0, 0, 0, 255), (255, 255, 255, 255)
+            elif Lbg <= 90:
+                text_rgba, stroke_rgba = (255, 255, 255, 255), (0, 0, 0, 255)
+            else:
+                dark = estimate_text_is_dark(base_canvas, x1, y1, x2, y2)
+                if dark:
+                    text_rgba, stroke_rgba = (0, 0, 0, 255), (255, 255, 255, 255)
+                else:
+                    text_rgba, stroke_rgba = (255, 255, 255, 255), (0, 0, 0, 255)
         for line_idx, line in enumerate(lines):
             line_width, _ = measure_text(draw_text, line, font)
             line_x = x1 + (box_width - line_width) // 2
