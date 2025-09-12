@@ -443,6 +443,21 @@ class Predictor(BasePredictor):
             print(f"Error loading image: {str(e)}")
             raise
         try:
+            auto_binarize = binarize
+            auto_shadow = remove_shadow_strength
+            # Smart preprocessing: decide binarization / shadow removal when requested
+            if smart_preprocessing:
+                gray_for_stats = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY) if arr.ndim == 3 else arr.copy()
+                _, otsu = cv2.threshold(gray_for_stats, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+                bg = gray_for_stats[otsu == 255]
+                var = float(bg.var()) if bg.size > 0 else 0.0
+                if binarize == "auto":
+                    if profile in ("scan", "plate") or var > 250.0:
+                        auto_binarize = "adaptive_gaussian"
+                        if auto_shadow == 0:
+                            auto_shadow = 8
+                    else:
+                        auto_binarize = "none"
             processed = self._preprocess(
                 arr,
                 preprocessing,
