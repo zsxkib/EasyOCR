@@ -50,6 +50,7 @@ class Predictor(BasePredictor):
     def setup(self) -> None:
         # Use GPU if available; initialize lazily to keep memory low on CPU-only hosts.
         self.use_gpu = torch.cuda.is_available()
+        print(f"Using GPU: {self.use_gpu}")
         # Be conservative with threads on CPU
         os.environ.setdefault("OMP_NUM_THREADS", "1")
         os.environ.setdefault("MKL_NUM_THREADS", "1")
