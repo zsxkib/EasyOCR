@@ -361,6 +361,12 @@ class Predictor(BasePredictor):
     def predict(
         self,
         image: Path = Input(description="Screenshot or image file"),
+        # High-level preset for UX simplicity.
+        profile: str = Input(
+            description="Preset tuned for document type",
+            default="auto",
+            choices=["auto", "book", "scan", "screenshot", "plate"],
+        ),
         languages: str = Input(
             description="Languages preset or custom list",
             default="auto",
@@ -400,10 +406,11 @@ class Predictor(BasePredictor):
         deskew: bool = Input(description="Deskew small angles", default=True),
         trim_borders: bool = Input(description="Trim outer borders", default=True),
         invert_strategy: str = Input(description="Ensure dark text on light background", default="auto", choices=["auto","force","disable"]),
-        binarize: str = Input(description="Binarization mode (for scans)", default="none", choices=["none","otsu","adaptive_mean","adaptive_gaussian"]),
+        binarize: str = Input(description="Binarization mode", default="auto", choices=["auto","none","otsu","adaptive_mean","adaptive_gaussian"]),
         morph_op: str = Input(description="Morphology op after binarize", default="none", choices=["none","dilate","erode","open","close"]),
         morph_kernel: int = Input(description="Morph kernel size", default=0, ge=0, le=15),
         remove_shadow_strength: int = Input(description="Uneven lighting removal (0=off)", default=0, ge=0, le=20),
+        smart_preprocessing: bool = Input(description="Auto-tune preprocessing based on image stats", default=True),
         # Output controls
         min_confidence: float = Input(description="Minimum confidence (0.0-1.0)", default=0.4, ge=0.0, le=1.0),
         text_only: bool = Input(description="Return only text lines (list of strings)", default=False),
@@ -446,10 +453,10 @@ class Predictor(BasePredictor):
                 deskew=deskew,
                 trim_borders=trim_borders,
                 invert_strategy=invert_strategy,
-                binarize=binarize,
+                binarize=auto_binarize if isinstance(auto_binarize, str) else binarize,
                 morph_op=morph_op,
                 morph_kernel=morph_kernel,
-                remove_shadow_strength=remove_shadow_strength,
+                remove_shadow_strength=int(auto_shadow),
             )
         except Exception as e:
             print(f"Error preprocessing image: {str(e)}")
