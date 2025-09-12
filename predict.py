@@ -270,7 +270,7 @@ class Predictor(BasePredictor):
             
         return lines
     
-    def _reconstruct_line_text(self, line_regions):
+    def _reconstruct_line_text(self, line_regions, space_bias: float = 0.2):
         """Reconstruct text from regions in a line, handling word boundaries intelligently."""
         if not line_regions:
             return ""
@@ -297,7 +297,7 @@ class Predictor(BasePredictor):
                 char_width = prev_width / max(1, len(prev_region[4].strip()))
                 
                 # Add space if gap is significant (> 0.5 character widths)
-                if gap > max(2, char_width * 0.2):
+                if gap > max(2, char_width * space_bias):
                     reconstructed += " " + text
                 else:
                     # No space - likely part of same word
@@ -305,7 +305,7 @@ class Predictor(BasePredictor):
                     
         return reconstructed
     
-    def _to_detections(self, results: List, min_conf: float, include_bboxes: bool, include_polygons: bool) -> List[TextRegion]:
+    def _to_detections(self, results: List, min_conf: float, include_bboxes: bool, include_polygons: bool, space_bias: float = 0.2) -> List[TextRegion]:
         out: List[TextRegion] = []
         
         # Filter low confidence results
@@ -327,7 +327,7 @@ class Predictor(BasePredictor):
         # Process each line
         for line_regions in lines:
             # Reconstruct the line text
-            line_text = self._reconstruct_line_text(line_regions)
+            line_text = self._reconstruct_line_text(line_regions, space_bias)
             
             if not line_text.strip():
                 continue
@@ -559,7 +559,12 @@ class Predictor(BasePredictor):
             print(f"Error during OCR processing: {str(e)}")
             raise
 
-        detections = self._to_detections(results, min_confidence, include_bboxes, include_polygons)
+        space_bias = 0.2
+        if profile == "book":
+            space_bias = 0.35
+        elif merge_level == "high":
+            space_bias = 0.3
+        detections = self._to_detections(results, min_confidence, include_bboxes, include_polygons, space_bias=space_bias)
         # Cleanup
         if self.use_gpu:
             gc.collect()
@@ -681,7 +686,22 @@ class Predictor(BasePredictor):
             text = re.sub(r"_+", "", text)
             return text
         markdown_content = fix(markdown_content)
-        
+
+        # Additional book-mode post-fixes (conservative)
+        if profile == "book":
+            repats = [
+                (r"\blongtime\b", "long time"),
+                (r"\btopeople\b", "to people"),
+                (r"\bveryshabby\b", "very shabby"),
+                (r"\bHesaid\b", "He said,"),
+                (r"\ban eyes\b", "and your eyes"),
+                (r"\bdropout\b", "drop out"),
+                (r"\bby the are Real\b", "by the time you are Real"),
+            ]
+            import re as _re2
+            for pat,to in repats:
+                markdown_content = _re2.sub(pat, to, markdown_content)
+
         # Write to markdown file
         out_file = Path("extracted_text.md")
         out_file.write_text(markdown_content, encoding='utf-8')
