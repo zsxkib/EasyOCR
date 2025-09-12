@@ -2,7 +2,7 @@
 # Production-ready Cog deployment
 
 build:
-  gpu: false
+  gpu: true
   python_version: "3.11"
   
   python_requirements: requirements.txt
