@@ -296,7 +296,7 @@ class Predictor(BasePredictor):
                 char_width = prev_width / max(1, len(prev_region[4].strip()))
                 
                 # Add space if gap is significant (> 0.5 character widths)
-                if gap > char_width * 0.5:
+                if gap > max(2, char_width * 0.2):
                     reconstructed += " " + text
                 else:
                     # No space - likely part of same word
@@ -546,15 +546,15 @@ class Predictor(BasePredictor):
         if remove_page_numbers and detections:
             max_y = max(d.y2 for d in detections if d.y2 is not None)
             def is_page_num(d: TextRegion) -> bool:
-                if d.y1 is None or d.y2 is None or d.x1 is None or d.x2 is None:
+                if d.y1 is None or d.y2 is None:
                     return False
-                txt = d.text.strip()
-                if not txt.isdigit():
+                txt = (d.text or "").strip()
+                norm = re.sub(r"[^0-9]", "", txt)
+                if not norm.isdigit() or len(norm) == 0:
                     return False
-                if len(txt) > 3:
+                if len(norm) > 4:
                     return False
-                # bottom 15% of page
-                return d.y1 > 0.85 * max_y
+                return d.y1 > 0.80 * max_y
             detections = [d for d in detections if not is_page_num(d)]
 
         # Create markdown output preserving original formatting as much as possible
@@ -654,6 +654,8 @@ class Predictor(BasePredictor):
                 text = text.replace('--', '—')
             # collapse multiple spaces
             text = re.sub(r"[ \t]{2,}", " ", text)
+            text = re.sub(r"\b([A-Za-z]+)'\s*[$sS]\b", r"\1's", text)
+            text = re.sub(r"_+", "", text)
             return text
         markdown_content = fix(markdown_content)
         
