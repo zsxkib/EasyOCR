@@ -395,7 +395,7 @@ class Predictor(BasePredictor):
         allow_basic_punct: bool = Input(description="Restrict to common punctuation to avoid odd symbols", default=True),
         allow_brackets: bool = Input(description="Permit brackets []{}<>", default=False),
         merge_level: str = Input(description="Text merging strength", default="auto", choices=["auto","low","medium","high"]),
-        autotune: bool = Input(description="Try a few parameter combos and pick best", default=True),
+        autotune: bool = Input(description="Try a few parameter combos and pick best", default=False),
         block_rare_symbols: bool = Input(description="Block uncommon symbols ($§•◊ etc.)", default=True),
         # Preprocess controls
         preprocessing: bool = Input(description="Apply preprocessing (recommended)", default=True),
@@ -523,7 +523,7 @@ class Predictor(BasePredictor):
                 beamWidth=bw,
                 allowlist=allowlist,
                 blocklist=blocklist,
-                batch_size=1,
+                batch_size=4 if self.use_gpu else 1,
                 workers=0,
                 text_threshold=0.7,
                 low_text=0.4,
