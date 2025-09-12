@@ -3,12 +3,11 @@
 
 build:
   gpu: false
-  cog_runtime: true
   python_version: "3.11"
   
   python_requirements: requirements.txt
   
-  # Install CPU PyTorch for local testing; on GPU (Replicate) CUDA build will be used by base image.
+  # Install PyTorch matching container architecture (ARM64 on Apple Silicon)
   run:
     - "pip install --upgrade torch torchvision torchaudio"
 
